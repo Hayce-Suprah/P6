@@ -44,8 +44,8 @@ exports.getAllStuff = (req, res, next) => {
     Sauces.findOne({
       _id: req.params.id
     }).then(
-      (sauces) => {
-        res.status(200).json(sauces);
+      (sauce) => {
+        res.status(200).json(sauce);
       }
     ).catch(
       (error) => {
@@ -77,7 +77,7 @@ exports.getAllStuff = (req, res, next) => {
             .catch(error => res.status(400).json({ error }));
         });
       })
-      .catch(error => res.status(500).json({ error }));
+      .catch(error => res.status(404).json({ error }));
   };
   
   exports.modifyLike = (req, res, next) => {
@@ -86,34 +86,37 @@ exports.getAllStuff = (req, res, next) => {
       _id: req.params.id
     }).then(
       (sauce) => {
-        console.log(req.body.like)
-        if(req.body.like === '1'){
-          const finded = sauce.usersLiked.find(id => id === req.body.userId)
-          if(!finded){
+        if(req.body.like === 1){
+          const finded = sauce.usersLiked.find(id => id.toString() === req.body.userId)
+          if(finded === undefined){
             sauce.usersLiked.push(req.body.userId)
-            sauce.likes = sauce.likes++
+            sauce.likes++
             message = "L'utilisateur à liker la sauce"
           }else{
             message = "L'utilisateur à déjà liker la sauce"
           }
           
-        }else if(req.body.like === '0'){
-          const finded = sauce.usersLiked.find(id => id === req.body.userId)
-          if(!finded){
-            sauce.usersLiked.remove(req.body.userId)
-            sauce.likes = sauce.likes -1
+        }else if(req.body.like === 0){
+          const findedlike = sauce.usersLiked.find(id => id.toString() === req.body.userId)
+          const findeddislike = sauce.usersDisliked.find(id => id.toString() === req.body.userId)
+          if(findedlike !== undefined){
+            const arr = sauce.usersLiked.filter(id => id.toString() !== req.body.userId)
+            sauce.usersLiked = arr
+            sauce.likes--
             message = "L'utilisateur à annuler son like"
-          }else{
-            sauce.usersDisliked.remove(req.body.userId)
-            sauce.dislikes = sauce.dislikes -1
-            message =  "L'utilisateur à annuler son dislike"
+          }
+          if(findeddislike !== undefined){
+            const arr = sauce.usersDisliked.filter(id => id.toString() !== req.body.userId)
+            sauce.usersDisliked = arr
+            sauce.dislikes--
+            message = "L'utilisateur à annuler son dislike"
           }
           
-        }else if(req.body.like === '-1'){
-          const finded = sauce.usersDisliked.find(id => id === req.body.userId)
-          if(!finded){
+        }else if(req.body.like === -1){
+          const finded = sauce.usersDisliked.find(id => id.toString() === req.body.userId)
+          if(finded === undefined){
             sauce.usersDisliked.push(req.body.userId)
-            sauce.dislikes = sauce.dislikes +1
+            sauce.dislikes++
             message = "L'utilisateur à disliker la sauce"
           }else{
             message = "L'utilisateur à déjà disliker la sauce"

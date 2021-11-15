@@ -3,8 +3,16 @@ const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const Sauces = require('./models/Sauces');
 const path = require('path');
+const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
 
-const stuffRoutes = require('./routes/stuff');
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100
+});
+
+const stuffRoutes = require('./routes/sauce');
 const userRoutes = require('./routes/user');
 
 mongoose.connect('mongodb+srv://Hayce:24091994@cluster0.olqce.mongodb.net/myFirstDatabase?retryWrites=true&w=majority',
@@ -25,6 +33,8 @@ app.use((req, res, next) => {
 
 app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
+app.use(limiter);
+app.use(helmet());
 
 
 app.use('/images', express.static(path.join(__dirname, 'images')));
