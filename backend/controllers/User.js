@@ -1,31 +1,16 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const MaskData = require("maskdata");
 const Joi = require("joi");
 const password = require("../middleware/password");
 
-const maskEmailOptions = {
-  maskWith: "X",
-  unmaskedStartCharactersBeforeAt: 0,
-  unmaskedEndCharactersAfterAt: 5,
-  maskAtTheRate: false,
-};
-
-// const schema = Joi.object({
-//   password: Joi.string().pattern(/^[a-zA-Z0-9]{3,20}$/),
-//   repeat_password: Joi.ref("password"),
-//   email: Joi.string().email({ minDomainSegments: 2, tlds: { allow: ["com", "net", 'fr'] } } )
-// }).with('username', 'birth_year').xor('password', 'access_token').with('password', 'repeat_password')
-
-// schema.validate({ email: req.body.email, password: password });
-
-// schema.validate({});
-
-// try {
-//     const value = await schema.validateAsync({ email: req.body.email, password: password});
-// }
-// catch (err) { }
+const shemaUser = Joi.object({
+  email: Joi.string().email({
+    minDomainSegments: 2,
+    tlds: { allow: ["com", "net", "fr"] },
+  }),
+  password: Joi.string().pattern(/^[a-zA-Z0-9]{3,20}$/),
+});
 
 exports.signup = (req, res, next) => {
   bcrypt
@@ -34,10 +19,17 @@ exports.signup = (req, res, next) => {
       bcrypt
         .hash(req.body.password, 10)
         .then((hash) => {
+          const err = shemaUser.validate({
+            email: req.body.email,
+            password: req.body.password,
+          });
+          if (err.error) throw err.error;
+
           const user = new User({
             email: hashemail,
             password: hash,
           });
+
           user
             .save()
             .then(() => res.status(201).json({ message: "Utilisateur créé !" }))
@@ -48,83 +40,35 @@ exports.signup = (req, res, next) => {
     .catch((error) => res.status(500).json({ error }));
 };
 
-// exports.login = (req, res, next) => {
-//     User.findOne({ email: MaskData.maskEmail2(req.body.email, maskEmailOptions) })
-//         .then(user => {
-//         if (!user) {
-//             return res.status(401).json({ error: 'Utilisateur non trouvé !' });
-//         }
-//         console.log(user);
-//         bcrypt.compare(req.body.password, user.password)
-//             .then(valid => {
-//             if (!valid) {
-//                 return res.status(401).json({ error: 'Mot de passe incorrect !' });
-//             }
-//             res.status(200).json({
-//                 userId: user._id,
-//                 token: jwt.sign(
-//                     { userId: user._id },
-//                     'RANDOM_TOKEN_SECRET',
-//                     { expiresIn: '24h' }
-//                   )
-//             });
-//             })
-//             .catch(error => res.status(500).json({ error }));
-//         })
-//         .catch(error => res.status(500).json({ error }));
-//     };
-
 exports.login = (req, res, next) => {
-  // const emailhash = bcrypt.hashSync(req.body.email, 10);
+  User.find()
+    .then((users) => {
+      let userFinded = null;
+      for (const user of users) {
+        const valid = bcrypt.compareSync(req.body.email, user.email);
+        if (valid) {
+          userFinded = user;
+        }
+      }
 
-  bcrypt
-    .hash(req.body.email, 10)
-    .then((hashemail) => {
-      User.find()
-        .then((users) => {
-          for (user of users) {
-            console.log("azeazeaze");
-            const valid = bcrypt.compareSync(
-              "$2y$10$D3fZtvgGGsIxqcSEyNfHIO12zAOyMDiUiS3N5xDI7lF1iUz82JjQS",
-              "$2y$10$D3fZtvgGGsIxqcSEyNfHIO12zAOyMDiUiS3N5xDI7lF1iUz82JjQS"
-            );
-            console.log(valid);
-          }
-        })
-        .catch((error) => res.status(500).json({ error }));
+      if (userFinded !== null) {
+        bcrypt
+          .compare(req.body.password, userFinded.password)
+          .then((valid) => {
+            if (!valid) {
+              return res.status(401).json({ error: "Mot de passe incorrect" });
+            }
+            res.status(200).json({
+              userId: userFinded._id,
+              token: jwt.sign(
+                { userId: userFinded._id },
+                process.env.JWT_TOKEN,
+                { expiresIn: "24h" }
+              ),
+            });
+          })
+          .catch((error) => res.status(500).json({ error }));
+      }
     })
     .catch((error) => res.status(500).json({ error }));
-
-  // const userfind = null;
-  // User.find()
-  //   .then((users) => {
-  //     for (const user of users) {
-  //       console.log(user.email);
-  //       const isValid = bcrypt.compareSync(emailhash, user.email);
-  //       console.log(isValid);
-  //       if (isValid) {
-  //         userfind = user;
-  //       }
-  //     }
-  //     if (userfind !== null) {
-  //       bcrypt
-  //         .compare(req.body.password, userfind.password)
-  //         .then((valid) => {
-  //           if (!valid) {
-  //             return res
-  //               .status(401)
-  //               .json({ error: "Mot de passe incorrect !" });
-  //           }
-  //           res.status(200).json({
-  //             userId: userfind._id,
-  //             token: jwt.sign({ userId: userfind._id }, "RANDOM_TOKEN_SECRET", {
-  //               expiresIn: "24h",
-  //             }),
-  //           });
-  //         })
-  //         .catch((error) => res.status(500).json({ error }));
-  //     }
-  //   })
-
-  //   .catch((error) => res.status(500).json({ error }));
 };
